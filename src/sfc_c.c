@@ -1,16 +1,13 @@
 #include "sfc.h"
-#include <stdio.h>
-#include <stdlib.h>
 #include <math.h>
-#include <string.h>
 
 static ptab ptable[256];
-static char codes[256][256];
+static char codes[256][8];
 
 void compress(const char *input, const char *output)
 {
 	int c, i = 0, j;
-	char string[255];
+	char string[256];
 
 	FILE *infile = fopen(input, "r");
 
@@ -97,28 +94,28 @@ void compress(const char *input, const char *output)
 
 int ptablebuild(FILE *infile, ptab ptable[])
 {
-	int freq_table[MAPSIZE], i, c;
+	int freq_table[256], i, c;
 
-	unsigned long total = 0;
-	for (i = 0; i < MAPSIZE; ++i) {
+	int total = 0;
+	for (i = 0; i < 256; ++i) {
 		freq_table[i] = 0;
 	}
 
 	while ((c = getc(infile)) != EOF) {
 		freq_table[c]++;
-		total++;
+		++total;
 	}
 
-	double ftot = (double)total;
+	int ftot = total;
 
 	int size = 0;
-	for (i = 0; i < MAPSIZE; ++i) {
+	for (i = 0; i < 256; ++i) {
 		if (!freq_table[i]) {
 			continue;
 		}
 
 		ptable[size].ch = i;
-		ptable[size].p = (double)freq_table[i] / ftot;
+		ptable[size].p = (float)freq_table[i] / ftot;
 		size++;
 	}
 	
@@ -128,46 +125,44 @@ int ptablebuild(FILE *infile, ptab ptable[])
 
 void encode(int li, int ri)
 {
-	if (li == ri) {
-		return;
-	}
+	if (li != ri) {
 
-	int i, isp;
-	float p, phalf;
+		int i, isp;
+		float p, phalf;
 
-	if (ri - li == 1) {
-		charcat(codes[ptable[li].ch], '0');
-		charcat(codes[ptable[ri].ch], '1');
-	} else {
-		phalf = 0;
-		for(i = li; i <= ri; ++i) {
-			phalf += ptable[i].p;
-		}
-
-		p = 0;
-		isp = -1;
-		phalf *= 0.5f;
-		for(i = li; i <= ri; ++i) {
-			if(p <= phalf) {
-				charcat(codes[ptable[i].ch], '0');
-			} else {
-				charcat(codes[ptable[i].ch], '1');
-				if(isp < 0) {
-					isp = i;
-				}
+		if (ri - li == 1) {
+			charcat(codes[ptable[li].ch], '0');
+			charcat(codes[ptable[ri].ch], '1');
+		} else {
+			phalf = 0;
+			for(i = li; i <= ri; ++i) {
+				phalf += ptable[i].p;
 			}
-			p += ptable[i].p;
+
+			p = 0;
+			isp = -1;
+			phalf *= 0.5f;
+			for(i = li; i <= ri; ++i) {
+				if(p <= phalf) {
+					charcat(codes[ptable[i].ch], '0');
+				} else {
+					charcat(codes[ptable[i].ch], '1');
+					if(isp < 0) {
+						isp = i;
+					}
+				}
+				p += ptable[i].p;
+			}
+
+			if (isp < 0) {
+				isp = li + 1;
+			}
+
+			encode(li, isp - 1);
+			encode(isp, ri);
+
 		}
-
-		if (isp < 0) {
-			isp = li + 1;
-		}
-
-		encode(li, isp - 1);
-		encode(isp, ri);
-
 	}
-
 }
 
 void charcat(char s[], char t)

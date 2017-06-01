@@ -4,8 +4,6 @@
 #include <string.h>
 #include <stdlib.h>
 
-#define	MAPSIZE 256
-
 typedef struct ptab {
 	int ch;
 	float p;
